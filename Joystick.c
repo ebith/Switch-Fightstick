@@ -105,6 +105,10 @@ void parseLine(char *line) {
 		} else {
 			command = STICK_CENTER;
 		}
+	} else if ((atoi(c) && c[0] != '0' && (sizeof c / sizeof c[0]) == 3) || 1) {
+		int num;
+		sscanf(c, "%d", &num);
+		command = num;
 	} else {
 		target = RELEASE;
 	}
