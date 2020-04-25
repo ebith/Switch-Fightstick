@@ -30,11 +30,105 @@ these buttons for our use.
 uint8_t target = RELEASE;
 uint16_t command;
 
+int done = 0;
+
+/*
+const char* switchKeyNames[16] = {
+  "A", "B", "CAPTURE", "HOME", "RIGHT", "LEFT", "TOP", "BOTTOM",
+  "R", "L", "X", "Y", "0", "0", "ZL", "ZR", //Two missing keys are the plus and minus keys on the joy-cons
+};
+*/
+ uint8_t onoff = 0;
+
+const JoystickButtons_t switch_keys[16] = {
+	SWITCH_A,SWITCH_B,SWITCH_CAPTURE,SWITCH_HOME,HAT_RIGHT,HAT_LEFT,HAT_TOP,HAT_BOTTOM,
+	SWITCH_R,SWITCH_L,SWITCH_X,SWITCH_Y,SWITCH_MINUS,SWITCH_PLUS,SWITCH_ZL,SWITCH_ZR,
+};
+
+USB_JoystickReport_Input_t cur_report;
+
+void testSticks() {
+  if(cur_report.LX < STICK_MAX) {
+    cur_report.LX++;
+  } else {
+    cur_report.LX = 0;
+  }
+
+  if(cur_report.RX < STICK_MAX) {
+    cur_report.RX++;
+  } else {
+    cur_report.RX = 0;
+  }
+
+  if(cur_report.LY < STICK_MAX) {
+    cur_report.LY++;
+  } else {
+    cur_report.LY = 0;
+  }
+
+  if(cur_report.RY < STICK_MAX) {
+    cur_report.RY++;
+  } else {
+    cur_report.RY = 0;
+  }
+}
+
+void parseData(char *line) {
+  unsigned char* k1 = 0;
+	unsigned char* k2 = 0;
+
+  sscanf(line, "%c %c", k1, k2);
+
+  uint8_t firstByte;
+  memcpy(&firstByte,k1, 1);
+
+  uint8_t secondByte;
+  memcpy(&secondByte, k2, 1);
+
+  EmptyReport();
+  cur_report.LX = firstByte;
+  cur_report.LY = secondByte;
+	//memcpy(&controllerStatus,&controllerData,12);
+	//EmptyReport();
+
+	//memcpy(&cur_report, &line, 12);
+
+
+/*
+//Determine buttons
+	for(int i = 0; i <= 16; i++) {
+		if(controllerData.keys & 1<<i) {//If it is pressed down
+			cur_report.Button |= switch_keys[i];
+
+			if(!(controllerStatus.keys & 1<<i) || 1) {//Check if it already is pressed
+				controllerStatus.keys ^= 1<<i;
+				cur_report.Button |= switch_keys[i];
+			}
+		} else {//If it is not pressed down
+			if(controllerStatus.keys & 1<<i || 1) {//Check if it wasn't released before
+				controllerStatus.keys ^= 1<<i;
+				cur_report.Button |= SWITCH_RELEASE;
+			}
+
+		}
+	}
+
+
+	//circlepad and c stick
+	cur_report.LX = controllerData.circlePad.x;
+	cur_report.LY = controllerData.circlePad.y;
+	cur_report.RX = controllerData.cStick.x;
+	cur_report.RY = controllerData.cStick.y;
+
+	cur_report.HAT = HAT_CENTER;
+	*/
+}
+
 void parseLine(char *line) {
 	char t[8];
 	char c[16];
   sscanf(line, "%s %s", t, c);
-	if (strcasecmp(t, "Button") == 0) {
+	if (strcasecmp(t, "BTN") == 0) {
 		target = Button;
 	} else if (strcasecmp(t, "LX") == 0) {
 		target = LX;
@@ -46,7 +140,10 @@ void parseLine(char *line) {
 		target = RY;
 	} else if (strcasecmp(t, "HAT") == 0) {
 		target = HAT;
-	} else {
+	} else if (strcasecmp(t, "D")){
+    done = 1;
+    return;
+  } else {
 		target = RELEASE;
 	}
 	if (strcasecmp(c, "Y") == 0) {
@@ -65,10 +162,10 @@ void parseLine(char *line) {
 		command = SWITCH_ZL;
 	} else if (strcasecmp(c, "ZR") == 0) {
 		command = SWITCH_ZR;
-	} else if (strcasecmp(c, "SELECT") == 0) {
-		command = SWITCH_SELECT;
-	} else if (strcasecmp(c, "START") == 0) {
-		command = SWITCH_START;
+	} else if (strcasecmp(c, "MINUS") == 0) {
+		command = SWITCH_MINUS;
+	} else if (strcasecmp(c, "PLUS") == 0) {
+		command = SWITCH_PLUS;
 	} else if (strcasecmp(c, "LCLICK") == 0) {
 		command = SWITCH_LCLICK;
 	} else if (strcasecmp(c, "RCLICK") == 0) {
@@ -106,11 +203,37 @@ void parseLine(char *line) {
 			command = STICK_CENTER;
 		}
 	} else if ((atoi(c) && c[0] != '0' && (sizeof c / sizeof c[0]) == 3) || 1) {
+		// gradient from circle pad or c-stick
 		int num;
 		sscanf(c, "%d", &num);
 		command = num;
 	} else {
 		target = RELEASE;
+	}
+
+  //add to cur_report
+  switch(target) {
+		case Button:
+			cur_report.Button |= command;
+			break;
+		case LX:
+			cur_report.LX = command;
+			break;
+		case LY:
+			cur_report.LY = command;
+			break;
+		case RX:
+			cur_report.RX = command;
+			break;
+		case RY:
+			cur_report.RY = command;
+			break;
+		case HAT:
+			cur_report.HAT = command;
+			break;
+		case RELEASE:
+		default:
+			break;
 	}
 }
 
@@ -122,14 +245,27 @@ ISR(USART1_RX_vect) {
 	if (Serial_IsSendReady()) {
 		printf("%c", c);
 	}
-	if (c == '\r') {
+
+  if (c == '\r') {//carriage return means transmission is complete
 		parseLine(b);
 		l = 0;
 		memset(b, 0, sizeof(b));
 	} else if (c != '\n' && l < MAX_BUFFER) {
 		b[l++] = c;
 	}
+
 }
+
+void EmptyReport(void)
+{
+	cur_report.Button = SWITCH_RELEASE;
+ 	cur_report.LX = STICK_CENTER;
+	cur_report.LY = STICK_CENTER;
+	cur_report.RX = STICK_CENTER;
+ 	cur_report.RY = STICK_CENTER;
+ 	cur_report.HAT = HAT_CENTER;
+}
+
 
 // Main entry point.
 int main(void) {
@@ -138,6 +274,8 @@ int main(void) {
 
   sei();
   UCSR1B |= (1 << RXCIE1);
+
+	EmptyReport();
 
 	// We'll start by performing hardware and peripheral setup.
 	SetupHardware();
@@ -273,9 +411,10 @@ void HID_Task(void) {
 
 // Prepare the next report for the host.
 void GetNextReport(USB_JoystickReport_Input_t* const ReportData) {
+	memcpy(ReportData, &cur_report, sizeof(USB_JoystickReport_Input_t));
 	/* Clear the report contents */
+	/*
 	memset(ReportData, 0, sizeof(USB_JoystickReport_Input_t));
-	ReportData->LX = STICK_CENTER;
 	ReportData->LY = STICK_CENTER;
 	ReportData->RX = STICK_CENTER;
 	ReportData->RY = STICK_CENTER;
@@ -303,13 +442,9 @@ void GetNextReport(USB_JoystickReport_Input_t* const ReportData) {
 			break;
 		case RELEASE:
 		default:
-			ReportData->LX = STICK_CENTER;
-			ReportData->LY = STICK_CENTER;
-			ReportData->RX = STICK_CENTER;
-			ReportData->RY = STICK_CENTER;
-			ReportData->HAT = HAT_CENTER;
-			ReportData->Button |= SWITCH_RELEASE;
+			EmptyReport();
 			break;
 	}
+	*/
 }
 // vim: noexpandtab

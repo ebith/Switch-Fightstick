@@ -18,10 +18,12 @@ IPAddress subnet(255, 255, 255, 0);//set subnet
 unsigned int currentKeys = 0;
 unsigned int oldKeys = 0;
 struct sticks {
-  unsigned int circleX, circleY, stickX, stickY;
+  uint8_t circleX, circleY, stickX, stickY;
 };
 struct sticks currentStick;
 struct sticks oldStick;
+
+USB_JoystickReport_Input_t controllerData; //struct that is sent via serial to the arduino
 
 const int cmd_connect = 0;
 const int cmd_keys = 1;
@@ -41,6 +43,11 @@ const char* switchKeyNames[16] = {
 
 const char* directions[2] = {
   "MAX", "MIN"
+};
+
+const JoystickButtons_t switch_keys[16] = {
+  SWITCH_A,SWITCH_B,SWITCH_CAPTURE,SWITCH_HOME,SWITCH_RELEASE,SWITCH_RELEASE,SWITCH_RELEASE,SWITCH_RELEASE,
+  SWITCH_R,SWITCH_L,SWITCH_X,SWITCH_Y,SWITCH_MINUS,SWITCH_PLUS,SWITCH_ZL,SWITCH_ZR,
 };
 
 /*Keys
@@ -106,7 +113,7 @@ void setupWifi() {
   Udp.begin(port);
 }
 
-// first one, 
+// first one,
 int receivePacket() {
   int packetSize = Udp.parsePacket();
   if (packetSize) {
@@ -126,53 +133,75 @@ int receivePacket() {
   }
   return 0;
 }
-
-void interpretPacket(){
+/*
+//Alternative packet interpretation function - sends a struct containing data to hori emulator
+void packData() {
   int command = dataIn.packetHeader.command;
   if(command == 0) {
     //This means it has recognized us
     //If we get this, it may be a good idea to reset all our key values
     //Serial.println("Connected to 3DS");
   } else if (command == 1) {
+    //reset everything
+    controllerData.Button = SWITCH_RELEASE;
+    controllerData.LX = 128;
+    controllerData.LY = 128;
+    controllerData.RX = 128;
+    controllerData.RY = 128;
+    controllerData.HAT = 0x08;
+    //memcpy(&controllerData.keys, &dataIn.myunion.keysPacket.keys, 4);
+
+    for(int i = 0; i <= 16; i++) {
+      if(dataIn.myunion.keysPacket.keys & 1<<i) {//If it is pressed down
+       controllerData.Button |= switch_keys[i];
+      }
+    }
+
+    updateSticks();
+
+    controllerData.LX = currentStick.circleX;
+    controllerData.LY = currentStick.circleY;
+
+    controllerData.RX = currentStick.stickX;
+    controllerData.RY = currentStick.stickY;
+
+    //possibly add some kind of waiting for a response from the arduino?
+
+    Serial.write('\n');//Indicates beginning of transmission. Originally went after \r
+    Serial.write((char*)&controllerData, sizeof(controllerData));
+    Serial.write('\r');
+  } else {
+    //something's wrong if you get here
+  }
+}
+*/
+
+
+void interpretPacket(){
+  int command = dataIn.packetHeader.command;
+  if(command == 0) {
+    //This means it has recognized us. If we get this, it may be a good idea to reset all our key values
+  } else if (command == 1) {
     //This means it is sending us keys
 
     memcpy(&oldKeys, &currentKeys, 4); // copy current keys to old keys
     memcpy(&currentKeys, &dataIn.myunion.keysPacket.keys, 4); // update current keys
 
-    for(int i = 0; i <= /*31 without the stick direction buttons*/23; i++) {
+    for(int i = 0; i <= /*31 with the stick direction buttons and TAP*/ 16; i++) {
       if((keyNames[i] != "0")) {
         if(currentKeys & 1<<i) {
-          if(!(oldKeys & 1<<i) || true) pressKey(i);/*Serial.printf("%c pressed \n",keyNames[i]);*/
+          if(!(oldKeys & 1<<i) || true) pressKey(i);
         } else {
-          if(oldKeys & 1<<i) releaseKey(i);/*Serial.printf("%s released \n", keyNames[i]);*/
+          //if(oldKeys & 1<<i) releaseKey(i);
         }
       }
-      
     }
-    /*
-    #if DEBUG
-    
-    //test circle pad and c stick
-    memcpy(&oldStick, &currentStick, 8);
-    short temp;
-    memcpy(&temp, &dataIn.myunion.keysPacket.circlePad.x, 2);
-    currentStick.circleX = map(temp, -160, 160, 0, 255);
-    Serial.printf("Circle pad X: %i \n", temp);
 
-    memcpy(&temp, &dataIn.myunion.keysPacket.circlePad.y, 2);
-    currentStick.circleY = map(temp, -160, 160, 0, 255);
-    Serial.printf("Circle pad Y: %i \n", temp);
-
-    memcpy(&temp, &dataIn.myunion.keysPacket.cStick.x, 2);
-    currentStick.stickX = map(temp, -160, 160, 0, 255);
-    Serial.printf("C-Stick X: %i \n", temp);
-
-    memcpy(&temp, &dataIn.myunion.keysPacket.cStick.y, 2);
-    currentStick.stickX = map(temp, -160, 160, 0, 255);
-    Serial.printf("C-Stick Y: %i \n", temp);
-    #endif DEBUG
-    */
     updateSticks();
+
+    Serial.write("D");
+    Serial.write('\r');
+    Serial.println();
 /* Old example code before it was put in a for loop above
     if((currentKeys & A)) {
       if(!(oldKeys & A))  Serial.println("A pressed");
@@ -183,41 +212,16 @@ void interpretPacket(){
       Serial.println("L pressed");
     }
     */
-    
-    
+
+
   } else if (command ==2) {
     //This is screenshot mode; not in use, if you get this then something is VERY wrong or the 3DS app has been modified
   }
 }
 
-/*
-void receivePacket() {
-  // if there's data available, read a packet
-  int packetSize = Udp.available(); // note that this includes the UDP header
-
-  if(packetSize)
-  {
-    packetSize = packetSize - 8;      // subtract the 8 byte header
-    Udp.readPacket( (byte *) &dataIn, 12, remoteIp, &remotePort);
-  }
-}
-}
-*/
-/*
-void sendSerial(const char msg[], int duration = 0) { //Function used in example python scripts - currently unused
-  Serial.write(msg);
-  Serial.write('\r');
-  Serial.println();
-
-  delay(duration);
-
-  Serial.write("RELEASE\r\n");
-}
-*/
-
 void updateSticks() {
   //test circle pad and c stick
-    memcpy(&oldStick, &currentStick, sizeof(currentStick));
+    //memcpy(&oldStick, &currentStick, sizeof(currentStick)); we are not recording old stick values any longer
     short temp;
     memcpy(&temp, &dataIn.myunion.keysPacket.circlePad.x, 2);
     currentStick.circleX = map(temp, -160, 160, 0, 255);
@@ -243,7 +247,7 @@ void updateSticks() {
       Serial.write(buf);
       Serial.write("\r\n");
     }
-    
+
     if(currentStick.circleY != oldStick.circleY) {
       sprintf(buf, "%03i", currentStick.circleY);
       Serial.write("LY ");
@@ -269,7 +273,7 @@ void updateSticks() {
 void pressKey(int keyI) {
   if(keyI < 16) {
     //If they are regular buttons
-    Serial.write("Button ");
+    Serial.write("Btn ");
     Serial.write(switchKeyNames[keyI]);
     Serial.write('\r');
     Serial.println();
@@ -279,25 +283,25 @@ void pressKey(int keyI) {
       Serial.write(directions[keyI-24]);
       Serial.write('\r');
       Serial.println();
-      
+
     } else if (keyI ==26) {
       Serial.write("RY ");
       Serial.write(directions[1]);
       Serial.write('\r');
       Serial.println();
-      
+
     } else if (keyI ==27) {
       Serial.write("RY ");
       Serial.write(directions[0]);
       Serial.write('\r');
       Serial.println();
-      
+
     } else if(keyI >= 28 && keyI <= 29) {
       Serial.write("LX ");
       Serial.write(directions[keyI-28]);
       Serial.write('\r');
       Serial.println();
-      
+
     } else if (keyI >=30 && keyI <= 31) {
       Serial.write("LY ");
       Serial.write(directions[keyI-30]);
@@ -305,8 +309,8 @@ void pressKey(int keyI) {
       Serial.println();
     }
   }
-  
-  //Serial.printf("%s pressed \n",keyNames[keyI]); 
+
+  //Serial.printf("%s pressed \n",keyNames[keyI]);
 }
 
 void releaseKey(int keyI) {
@@ -319,7 +323,7 @@ void releaseKey(int keyI) {
     */
     Serial.write("RELEASE\r\n");
   } else {
-    if(keyI >= 24 && keyI <= 25) {      
+    if(keyI >= 24 && keyI <= 25) {
       Serial.write("RX CENTER");
       Serial.write('\r');
       Serial.println();
@@ -349,7 +353,7 @@ void loop() {
     Serial.print(".");
     #endif
   }
-  
+
   if(receivePacket()) {
     interpretPacket();
   }
