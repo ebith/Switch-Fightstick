@@ -52,8 +52,6 @@
 
 #include "Descriptors.h"
 
-#include <stdlib.h>
-
 // Type Defines
 // Enumeration for joystick buttons.
 typedef enum {
@@ -65,8 +63,8 @@ typedef enum {
 	SWITCH_R       = 0x20,
 	SWITCH_ZL      = 0x40,
 	SWITCH_ZR      = 0x80,
-	SWITCH_MINUS  = 0x100,
-	SWITCH_PLUS   = 0x200,
+	SWITCH_SELECT  = 0x100,
+	SWITCH_START   = 0x200,
 	SWITCH_LCLICK  = 0x400,
 	SWITCH_RCLICK  = 0x800,
 	SWITCH_HOME    = 0x1000,
@@ -135,22 +133,4 @@ void GetNextReport(USB_JoystickReport_Input_t* const ReportData);
 
 #endif
 
-void EmptyReport(void);
 
-void testSticks(void);
-/*
-//data struct received from NodeMCU
-struct controller {
-  uint32_t keys;
-
-  struct {
-    uint16_t x;
-    uint16_t y;
-  } circlePad;
-
-  struct {
-    uint16_t x;
-    uint16_t y;
-  } cStick;
-};
-*/
