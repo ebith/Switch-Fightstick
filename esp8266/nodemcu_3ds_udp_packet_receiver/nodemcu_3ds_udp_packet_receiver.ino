@@ -192,7 +192,7 @@ void interpretPacket(){
         if(currentKeys & 1<<i) {
           if(!(oldKeys & 1<<i)) pressKey(i);
         } else {
-          if(oldKeys & 1<<i) pressKey(i); // this should work???
+          if(oldKeys & 1<<i) releaseKey(i);
         }
       }
     }
@@ -269,7 +269,12 @@ void updateSticks() {
 }
 
 void pressKey(int keyI) {
-  if(keyI < 16) {
+  if(keyI >=4 && keyI <= 7) {
+    Serial.write("H "); 
+    Serial.write(switchKeyNames[keyI]);
+    Serial.write('\r');
+    Serial.println();
+  } else if(keyI < 16) {
     //If they are regular buttons
     Serial.write("B ");
     Serial.write(switchKeyNames[keyI]);
@@ -312,14 +317,16 @@ void pressKey(int keyI) {
 }
 
 void releaseKey(int keyI) {
-  if(keyI < 16) {
-    /*
-    Serial.write("Release "); //Can be anything, just for convenience
+  if(keyI >=4 &&  keyI <= 7) {
+    Serial.write("H "); 
+    Serial.write("CENTER");
+    Serial.write('\r');
+    Serial.println();
+  } else if(keyI < 16) {
+    Serial.write("RE ");
     Serial.write(switchKeyNames[keyI]);
     Serial.write('\r');
     Serial.println();
-    */
-    Serial.write("RELEASE\r\n");
   } else {
     if(keyI >= 24 && keyI <= 25) {
       Serial.write("RX CENTER");

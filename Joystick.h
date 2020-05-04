@@ -42,7 +42,7 @@
 #include <avr/power.h>
 #include <avr/interrupt.h>
 #include <string.h>
-#include <stdlib.h>	
+#include <stdlib.h>
 
 
 #include <LUFA/Drivers/USB/USB.h>
@@ -64,8 +64,8 @@ typedef enum {
 	SWITCH_R       = 0x20,
 	SWITCH_ZL      = 0x40,
 	SWITCH_ZR      = 0x80,
-	SWITCH_SELECT  = 0x100,
-	SWITCH_START   = 0x200,
+	SWITCH_SELECT  = 0x100, //Minus button
+	SWITCH_START   = 0x200, //Plus button
 	SWITCH_LCLICK  = 0x400,
 	SWITCH_RCLICK  = 0x800,
 	SWITCH_HOME    = 0x1000,

@@ -27,7 +27,7 @@ these buttons for our use.
 #include <LUFA/Drivers/Peripheral/Serial.h>
 #include "Joystick.h"
 
-uint8_t target = RELEASE;
+uint8_t target;
 uint16_t command;
 
 USB_JoystickReport_Input_t cur_report;
@@ -46,11 +46,12 @@ void parseLine(char *line) {
 		target = RX;
 	} else if (strcasecmp(t, "RY") == 0) {
 		target = RY;
-	} else if (strcasecmp(t, "HAT") == 0) {
+	} else if (strcasecmp(t, "H") == 0) {
 		target = HAT;
-	} else {
+	} else if (strcasecmp(t, "RE") == 0) {
 		target = RELEASE;
 	}
+
 	if (strcasecmp(c, "Y") == 0) {
 		command = SWITCH_Y;
 	} else if (strcasecmp(c, "B") == 0) {
@@ -110,13 +111,13 @@ void parseLine(char *line) {
 	} else if((target == LX || target == LY || target == RX || target == RY) && atoi(c)){
 			command = atoi(c);
 	} else {
-		target = RELEASE;
+		//target = RELEASE;
 	}
 
 	//Add to cur_report
 	switch(target) {
 		case Button:
-			cur_report.Button ^= command;
+			cur_report.Button |= command;
 			break;
 		case LX:
 			cur_report.LX = command;
@@ -134,6 +135,8 @@ void parseLine(char *line) {
 			cur_report.HAT = command;
 			break;
 		case RELEASE:
+			cur_report.Button &= ~command; //set bit to 0
+			break;
 		default:
 			break;
 	}
