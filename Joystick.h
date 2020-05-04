@@ -42,6 +42,7 @@
 #include <avr/power.h>
 #include <avr/interrupt.h>
 #include <string.h>
+#include <stdlib.h>	
 
 
 #include <LUFA/Drivers/USB/USB.h>
@@ -128,9 +129,8 @@ void EVENT_USB_Device_Connect(void);
 void EVENT_USB_Device_Disconnect(void);
 void EVENT_USB_Device_ConfigurationChanged(void);
 void EVENT_USB_Device_ControlRequest(void);
+void emptyReport(void);
 // Prepare the next report for the host.
 void GetNextReport(USB_JoystickReport_Input_t* const ReportData);
 
 #endif
-
-

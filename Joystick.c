@@ -30,11 +30,13 @@ these buttons for our use.
 uint8_t target = RELEASE;
 uint16_t command;
 
+USB_JoystickReport_Input_t cur_report;
+
 void parseLine(char *line) {
 	char t[8];
 	char c[16];
   sscanf(line, "%s %s", t, c);
-	if (strcasecmp(t, "Button") == 0) {
+	if (strcasecmp(t, "B") == 0) {
 		target = Button;
 	} else if (strcasecmp(t, "LX") == 0) {
 		target = LX;
@@ -105,8 +107,35 @@ void parseLine(char *line) {
 		} else {
 			command = STICK_CENTER;
 		}
+	} else if((target == LX || target == LY || target == RX || target == RY) && atoi(c)){
+			command = atoi(c);
 	} else {
 		target = RELEASE;
+	}
+
+	//Add to cur_report
+	switch(target) {
+		case Button:
+			cur_report.Button ^= command;
+			break;
+		case LX:
+			cur_report.LX = command;
+			break;
+		case LY:
+			cur_report.LY = command;
+			break;
+		case RX:
+			cur_report.RX = command;
+			break;
+		case RY:
+			cur_report.RY = command;
+			break;
+		case HAT:
+			cur_report.HAT = command;
+			break;
+		case RELEASE:
+		default:
+			break;
 	}
 }
 
@@ -140,6 +169,9 @@ int main(void) {
 	// We'll then enable global interrupts for our use.
 	GlobalInterruptEnable();
 	// Once that's done, we'll enter an infinite loop.
+
+	emptyReport();
+
 	for (;;)
 	{
 		// We need to run our task to process and deliver data for our IN and OUT endpoints.
@@ -267,9 +299,21 @@ void HID_Task(void) {
 	}
 }
 
+void emptyReport() {
+	/* Clear the report contents */
+	cur_report.LX = STICK_CENTER;
+	cur_report.LY = STICK_CENTER;
+	cur_report.RX = STICK_CENTER;
+	cur_report.RY = STICK_CENTER;
+	cur_report.HAT = HAT_CENTER;
+	cur_report.Button |= SWITCH_RELEASE;
+}
+
 // Prepare the next report for the host.
 void GetNextReport(USB_JoystickReport_Input_t* const ReportData) {
-	/* Clear the report contents */
+	memcpy(ReportData, &cur_report, sizeof(USB_JoystickReport_Input_t));
+
+	/* Clear the report contents
 	memset(ReportData, 0, sizeof(USB_JoystickReport_Input_t));
 	ReportData->LX = STICK_CENTER;
 	ReportData->LY = STICK_CENTER;
@@ -307,6 +351,6 @@ void GetNextReport(USB_JoystickReport_Input_t* const ReportData) {
 			ReportData->Button |= SWITCH_RELEASE;
 			break;
 	}
+	*/
 }
 // vim: noexpandtab
-

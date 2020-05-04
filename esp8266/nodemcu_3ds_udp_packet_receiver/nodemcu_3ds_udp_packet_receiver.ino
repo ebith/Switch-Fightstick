@@ -190,18 +190,15 @@ void interpretPacket(){
     for(int i = 0; i <= /*31 with the stick direction buttons and TAP*/ 16; i++) {
       if((keyNames[i] != "0")) {
         if(currentKeys & 1<<i) {
-          if(!(oldKeys & 1<<i) || true) pressKey(i);
+          if(!(oldKeys & 1<<i)) pressKey(i);
         } else {
-          //if(oldKeys & 1<<i) releaseKey(i);
+          if(oldKeys & 1<<i) pressKey(i); // this should work???
         }
       }
     }
 
     updateSticks();
 
-    Serial.write("D");
-    Serial.write('\r');
-    Serial.println();
 /* Old example code before it was put in a for loop above
     if((currentKeys & A)) {
       if(!(oldKeys & A))  Serial.println("A pressed");
@@ -221,14 +218,15 @@ void interpretPacket(){
 
 void updateSticks() {
   //test circle pad and c stick
-    //memcpy(&oldStick, &currentStick, sizeof(currentStick)); we are not recording old stick values any longer
+    memcpy(&oldStick, &currentStick, sizeof(currentStick));
     short temp;
+
     memcpy(&temp, &dataIn.myunion.keysPacket.circlePad.x, 2);
     currentStick.circleX = map(temp, -160, 160, 0, 255);
     //Serial.printf("Circle pad X: %i \n", temp);
 
     memcpy(&temp, &dataIn.myunion.keysPacket.circlePad.y, 2);
-    currentStick.circleY = map(temp, -160, 160, 0, 255);
+    currentStick.circleY = map(temp, 160, -160, 0, 255);
     //Serial.printf("Circle pad Y: %i \n", temp);
 
     memcpy(&temp, &dataIn.myunion.keysPacket.cStick.x, 2);
@@ -236,7 +234,7 @@ void updateSticks() {
     //Serial.printf("C-Stick X: %i \n", temp);
 
     memcpy(&temp, &dataIn.myunion.keysPacket.cStick.y, 2);
-    currentStick.stickX = map(temp, -160, 160, 0, 255);
+    currentStick.stickY = map(temp, 160, -160, 0, 255);
     //Serial.printf("C-Stick Y: %i \n", temp);
 
     char buf[3];
@@ -273,7 +271,7 @@ void updateSticks() {
 void pressKey(int keyI) {
   if(keyI < 16) {
     //If they are regular buttons
-    Serial.write("Btn ");
+    Serial.write("B ");
     Serial.write(switchKeyNames[keyI]);
     Serial.write('\r');
     Serial.println();
